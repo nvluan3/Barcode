@@ -311,6 +311,7 @@
         <div class="controls">
             <button id="startBtn">▶️ Bắt đầu quét</button>
             <button id="stopBtn" disabled>⏹️ Dừng quét</button>
+            <button id="torchBtn" disabled>🔦 Bật đèn</button>
         </div>
 
         <div class="result-container">
@@ -339,6 +340,7 @@
         const cameraSelect = document.getElementById('cameraSelect');
         const clearBtn = document.getElementById('clearBtn');
         const scanCountBadge = document.getElementById('scanCount');
+        const torchBtn = document.getElementById('torchBtn');
 
         // Lấy danh sách camera (yêu cầu quyền trước để có label thiết bị)
         async function getCameras() {
@@ -589,6 +591,11 @@
             startBtn.disabled = scanning;
             stopBtn.disabled = !scanning;
             cameraSelect.disabled = scanning;
+            // Bật/tắt nút đèn pin chỉ khi đang quét
+            if (torchBtn) {
+                torchBtn.disabled = !scanning;
+                torchBtn.textContent = scanning && torchOn ? '🔦 Tắt đèn' : '🔦 Bật đèn';
+            }
             
             if (scanning) {
                 statusDiv.className = 'status active';
@@ -597,6 +604,55 @@
                 statusDiv.className = 'status inactive';
                 statusDiv.textContent = '⚫ Đã dừng quét';
             }
+        }
+
+        // Lấy track video hiện tại (tùy theo chế độ)
+        function getActiveVideoTrack() {
+            let videoElem = null;
+            if (currentMode === 'barcode') {
+                videoElem = document.querySelector('#interactive video');
+            } else {
+                videoElem = document.querySelector('#qr-reader video');
+            }
+
+            if (!videoElem) return null;
+            const stream = videoElem.srcObject;
+            if (!stream) return null;
+            const tracks = stream.getVideoTracks();
+            return tracks && tracks.length ? tracks[0] : null;
+        }
+
+        let torchOn = false;
+
+        // Bật/Tắt đèn pin (nếu hỗ trợ)
+        async function setTorch(on) {
+            const track = getActiveVideoTrack();
+            if (!track) {
+                alert('Vui lòng bắt đầu quét trước khi bật đèn flash.');
+                return false;
+            }
+
+            const capabilities = track.getCapabilities ? track.getCapabilities() : {};
+            if (!capabilities.torch) {
+                alert('Thiết bị hoặc trình duyệt không hỗ trợ đèn flash qua API này.');
+                return false;
+            }
+
+            try {
+                await track.applyConstraints({ advanced: [{ torch: !!on }] });
+                torchOn = !!on;
+                if (torchBtn) torchBtn.textContent = torchOn ? '🔦 Tắt đèn' : '🔦 Bật đèn';
+                return true;
+            } catch (err) {
+                console.error('Lỗi khi thay đổi torch:', err);
+                alert('Không thể thay đổi trạng thái đèn flash: ' + (err && err.message ? err.message : err));
+                return false;
+            }
+        }
+
+        // Toggle handler
+        async function toggleTorch() {
+            await setTorch(!torchOn);
         }
 
         // Event listeners
@@ -613,7 +669,17 @@
             }
         });
 
-        stopBtn.addEventListener('click', stopScanner);
+        stopBtn.addEventListener('click', () => {
+            // Tắt đèn khi dừng quét
+            if (torchOn) {
+                setTorch(false).catch(() => {});
+            }
+            stopScanner();
+        });
+
+        if (torchBtn) {
+            torchBtn.addEventListener('click', toggleTorch);
+        }
 
         clearBtn.addEventListener('click', () => {
             if (confirm('Xóa tất cả kết quả?')) {
