@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quét QR Code & Barcode</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 800px;
+            width: 100%;
+            padding: 30px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 25px;
+            font-size: 14px;
+        }
+
+        #reader {
+            border: 3px solid #667eea;
+            border-radius: 15px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            flex: 1;
+            min-width: 150px;
+            padding: 12px 20px;
+            font-size: 16px;
+            font-weight: 600;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: white;
+        }
+
+        #startBtn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        #startBtn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        #stopBtn {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        #stopBtn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(245, 87, 108, 0.4);
+        }
+
+        #stopBtn:disabled, #startBtn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .settings {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .settings label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+        }
+
+        .settings select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            background: white;
+            cursor: pointer;
+        }
+
+        .settings select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .result-container {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            min-height: 100px;
+        }
+
+        .result-container h3 {
+            color: #333;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .result-item {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border-left: 4px solid #667eea;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .result-item strong {
+            color: #667eea;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .result-item span {
+            color: #333;
+            word-break: break-all;
+            font-family: monospace;
+        }
+
+        .status {
+            text-align: center;
+            padding: 10px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            font-weight: 600;
+        }
+
+        .status.active {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status.inactive {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            background: #667eea;
+            color: white;
+        }
+
+        #clearBtn {
+            background: #6c757d;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        #clearBtn:hover {
+            background: #5a6268;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📱 Quét QR Code & Barcode</h1>
+        <p class="subtitle">Hỗ trợ quét mã nhỏ trên thiết bị điện tử</p>
+
+        <div class="status inactive" id="status">
+            ⚫ Chưa kích hoạt camera
+        </div>
+
+        <div class="settings">
+            <label for="cameraSelect">📷 Chọn camera:</label>
+            <select id="cameraSelect">
+                <option value="">Đang tải danh sách camera...</option>
+            </select>
+        </div>
+
+        <div id="reader"></div>
+
+        <div class="controls">
+            <button id="startBtn">▶️ Bắt đầu quét</button>
+            <button id="stopBtn" disabled>⏹️ Dừng quét</button>
+        </div>
+
+        <div class="result-container">
+            <h3>
+                📋 Kết quả quét 
+                <span class="badge" id="scanCount">0 mã</span>
+            </h3>
+            <div id="result"></div>
+            <button id="clearBtn">🗑️ Xóa kết quả</button>
+        </div>
+    </div>
+
+    <script>
+        let html5QrCode;
+        let isScanning = false;
+        let scanResults = [];
+        let scanCount = 0;
+
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const resultDiv = document.getElementById('result');
+        const statusDiv = document.getElementById('status');
+        const cameraSelect = document.getElementById('cameraSelect');
+        const clearBtn = document.getElementById('clearBtn');
+        const scanCountBadge = document.getElementById('scanCount');
+
+        // Cấu hình quét tối ưu cho mã nhỏ
+        const config = {
+            fps: 10,
+            qrbox: { width: 300, height: 300 },
+            aspectRatio: 1.0,
+            disableFlip: false,
+            // Cấu hình cho việc quét mã nhỏ
+            videoConstraints: {
+                facingMode: "environment",
+                advanced: [{
+                    focusMode: "continuous",
+                    zoom: 2.0
+                }]
+            },
+            formatsToSupport: [
+                Html5QrcodeSupportedFormats.QR_CODE,
+                Html5QrcodeSupportedFormats.CODE_128,
+                Html5QrcodeSupportedFormats.CODE_39,
+                Html5QrcodeSupportedFormats.CODE_93,
+                Html5QrcodeSupportedFormats.EAN_13,
+                Html5QrcodeSupportedFormats.EAN_8,
+                Html5QrcodeSupportedFormats.UPC_A,
+                Html5QrcodeSupportedFormats.UPC_E,
+                Html5QrcodeSupportedFormats.ITF,
+                Html5QrcodeSupportedFormats.CODABAR
+            ]
+        };
+
+        // Khởi tạo scanner
+        html5QrCode = new Html5Qrcode("reader");
+
+        // Lấy danh sách camera
+        Html5Qrcode.getCameras().then(cameras => {
+            if (cameras && cameras.length) {
+                cameraSelect.innerHTML = '';
+                cameras.forEach((camera, index) => {
+                    const option = document.createElement('option');
+                    option.value = camera.id;
+                    option.text = camera.label || `Camera ${index + 1}`;
+                    cameraSelect.appendChild(option);
+                });
+                
+                // Chọn camera sau (thường là camera chính)
+                if (cameras.length > 1) {
+                    cameraSelect.selectedIndex = cameras.length - 1;
+                }
+            }
+        }).catch(err => {
+            console.error('Lỗi khi lấy danh sách camera:', err);
+            cameraSelect.innerHTML = '<option>Không thể truy cập camera</option>';
+        });
+
+        // Xử lý kết quả quét
+        function onScanSuccess(decodedText, decodedResult) {
+            // Kiểm tra xem mã đã được quét chưa (tránh quét trùng)
+            const isDuplicate = scanResults.some(item => item.text === decodedText);
+            
+            if (!isDuplicate) {
+                scanCount++;
+                const timestamp = new Date().toLocaleString('vi-VN');
+                const format = decodedResult.result.format.formatName;
+                
+                scanResults.unshift({
+                    text: decodedText,
+                    format: format,
+                    time: timestamp
+                });
+
+                updateResults();
+                
+                // Phát âm thanh (tùy chọn)
+                playBeep();
+            }
+        }
+
+        function onScanError(errorMessage) {
+            // Không hiển thị lỗi quét thường xuyên để tránh spam
+            // console.log(errorMessage);
+        }
+
+        // Cập nhật hiển thị kết quả
+        function updateResults() {
+            scanCountBadge.textContent = `${scanCount} mã`;
+            
+            if (scanResults.length === 0) {
+                resultDiv.innerHTML = '<p style="text-align: center; color: #999;">Chưa có kết quả quét nào</p>';
+                return;
+            }
+
+            resultDiv.innerHTML = scanResults.map(item => `
+                <div class="result-item">
+                    <strong>${item.format}</strong>
+                    <span>${item.text}</span>
+                    <div style="font-size: 12px; color: #999; margin-top: 5px;">⏰ ${item.time}</div>
+                </div>
+            `).join('');
+        }
+
+        // Phát âm thanh khi quét thành công
+        function playBeep() {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.value = 800;
+            oscillator.type = 'sine';
+            
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.1);
+        }
+
+        // Bắt đầu quét
+        startBtn.addEventListener('click', async () => {
+            const cameraId = cameraSelect.value;
+            
+            if (!cameraId) {
+                alert('Vui lòng chọn camera!');
+                return;
+            }
+
+            try {
+                await html5QrCode.start(
+                    cameraId,
+                    config,
+                    onScanSuccess,
+                    onScanError
+                );
+
+                isScanning = true;
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+                cameraSelect.disabled = true;
+                statusDiv.className = 'status active';
+                statusDiv.textContent = '🟢 Đang quét...';
+            } catch (err) {
+                console.error('Lỗi khi bắt đầu quét:', err);
+                alert('Không thể bắt đầu quét. Vui lòng kiểm tra quyền truy cập camera.');
+            }
+        });
+
+        // Dừng quét
+        stopBtn.addEventListener('click', async () => {
+            try {
+                await html5QrCode.stop();
+                isScanning = false;
+                startBtn.disabled = false;
+                stopBtn.disabled = true;
+                cameraSelect.disabled = false;
+                statusDiv.className = 'status inactive';
+                statusDiv.textContent = '⚫ Đã dừng quét';
+            } catch (err) {
+                console.error('Lỗi khi dừng quét:', err);
+            }
+        });
+
+        // Xóa kết quả
+        clearBtn.addEventListener('click', () => {
+            if (confirm('Bạn có chắc muốn xóa tất cả kết quả?')) {
+                scanResults = [];
+                scanCount = 0;
+                updateResults();
+            }
+        });
+
+        // Khởi tạo hiển thị
+        updateResults();
+    </script>
+</body>
+</html>
