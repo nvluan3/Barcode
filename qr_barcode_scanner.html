@@ -340,27 +340,47 @@
         const clearBtn = document.getElementById('clearBtn');
         const scanCountBadge = document.getElementById('scanCount');
 
-        // Lấy danh sách camera
+        // Lấy danh sách camera (yêu cầu quyền trước để có label thiết bị)
         async function getCameras() {
+            cameraSelect.innerHTML = '<option value="">Đang tải...</option>';
             try {
+                // Yêu cầu quyền camera trước: nhiều trình duyệt chỉ trả về label sau khi được cấp quyền
+                let stream = null;
+                try {
+                    stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                } catch (permErr) {
+                    // Nếu từ chối quyền, vẫn cố enumerate (nhưng label có thể rỗng)
+                    console.warn('Quyền camera chưa được cấp hoặc bị từ chối:', permErr);
+                }
+
                 const devices = await navigator.mediaDevices.enumerateDevices();
                 const videoDevices = devices.filter(device => device.kind === 'videoinput');
-                
-                cameraSelect.innerHTML = '';
-                videoDevices.forEach((device, index) => {
-                    const option = document.createElement('option');
-                    option.value = device.deviceId;
-                    option.text = device.label || `Camera ${index + 1}`;
-                    cameraSelect.appendChild(option);
-                });
 
-                // Chọn camera sau nếu có
-                if (videoDevices.length > 1) {
-                    cameraSelect.selectedIndex = videoDevices.length - 1;
+                cameraSelect.innerHTML = '';
+                if (videoDevices.length === 0) {
+                    cameraSelect.innerHTML = '<option value="">Không tìm thấy camera</option>';
+                } else {
+                    videoDevices.forEach((device, index) => {
+                        const option = document.createElement('option');
+                        option.value = device.deviceId;
+                        // Nếu label rỗng (chưa cấp quyền), đặt tên mặc định
+                        option.text = device.label && device.label.trim().length > 0 ? device.label : `Camera ${index + 1}`;
+                        cameraSelect.appendChild(option);
+                    });
+
+                    // Chọn camera sau nếu có nhiều (thường là camera sau)
+                    if (videoDevices.length > 1) {
+                        cameraSelect.selectedIndex = videoDevices.length - 1;
+                    }
+                }
+
+                // Dừng stream tạm thời nếu đã khởi tạo để chỉ lấy quyền
+                if (stream) {
+                    stream.getTracks().forEach(t => t.stop());
                 }
             } catch (err) {
                 console.error('Lỗi lấy camera:', err);
-                cameraSelect.innerHTML = '<option>Không thể truy cập camera</option>';
+                cameraSelect.innerHTML = '<option value="">Không thể truy cập camera</option>';
             }
         }
 
